@@ -1,50 +1,50 @@
 #!/usr/bin/env python3
-#import emails
-import os
-import psutil
 import socket
-import email.message
-import mimetypes
-import os.path
-import smtplib
+import shutil
+import psutil
+import emails
 
-email_flag = False
+def check_localhost():
+    localhost = socket.gethostbyname('localhost')
+    return localhost== "127.0.0.1"
 
-def generate(sender, recipient, subject, body):
-    """Creates an email with an attachement."""
-    # Basic Email formatting
-    message = email.message.EmailMessage()
-    message["From"] = sender
-    message["To"] = recipient
-    message["Subject"] = subject
-    message.set_content(body)
-    return message
+def check_disk_usage(disk):
+    """Verifies that there's enough free space on disk"""
+    du = shutil.disk_usage(disk)
+    free = du.free / du.total * 100
+    return free > 20
 
-def send(message):
-    """Sends the message to the configured SMTP server."""
-    mail_server = smtplib.SMTP('localhost')
-    mail_server.send_message(message)
-    mail_server.quit()
+def check_memory_usage():
+    """Verifies that there's enough free space on disk"""
+    mu = psutil.virtual_memory().available
+    total = mu / (1024.0 ** 2)
+    return total > 500
 
+def check_cpu_usage():
+    """Verifies that there's enough unused CPU"""
+    usage = psutil.cpu_percent(1)
+    return usage < 80
+def send_email(subject):
+    email = emails.generate_email("automation@example.com", "student-01-2e175e2f136d@example.com",
+                                  subject,
+                                  "Please check your system and resolve the issue as soon as possible.", "")
+    emails.send_email(email)
 
-# gives a single float value
-if psutil.cpu_percent() > 80:
-    subject = "Error - CPU usage is over 80%"
-    email_flag = True
-elif round(psutil.disk_usage('/').percent, 2) < 20:
-    subject = "Error - Available disk space is less than 20%"
-    email_flag = True
-elif psutil.virtual_memory()._asdict()['free'] < 500000000:
+# If there's not enough disk, or not enough CPU, print an error
+if not check_cpu_usage() :
+    subject="Error - CPU usage is over 80%"
+    print(subject)
+    send_email(subject)
+if not check_memory_usage():
     subject = "Error - Available memory is less than 500MB"
-    email_flag = True
-elif socket.gethostbyname('localhost') != '127.0.0.1':
+    print(subject)
+
+if not check_disk_usage('/') :
+    subject = "Error - Available disk space is less than 20%"
+    print(subject)
+    send_email(subject)
+
+if not check_localhost():
     subject = "Error - localhost cannot be resolved to 127.0.0.1"
-    email_flag = True
-
-
-if email_flag:
-    sender = "automation@example.com"
-    receiver = "{}@example.com".format(os.environ.get('USER'))
-    body = "Please check your system and resolve the issue as soon as possible."
-    message = generate(sender, receiver, subject, body)
-    send(message)
+    print(subject)
+    send_email(subject)
